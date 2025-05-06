@@ -1,5 +1,5 @@
 const vscode = require('vscode')
-const { layoutMap } = require('../gomem/layout')
+const { layoutMap, getLayoutType } = require('../gomem/layout')
 
 function searchForStructInFile(structName) {
     const text = vscode.window.activeTextEditor.document.getText()
@@ -137,8 +137,8 @@ function writeStruct(structName, structFields, nested = false, buildString = "")
 function loopOn(arr, totalDimension = 0, currentDimension = 0, optimum = true) {
     arr.forEach(x => {
         if (!x.type && x.type !== 'nested') totalDimension += 0
-        else if (layoutMap[x.type]) {
-            let dim = layoutMap[x.type].size
+        else if (getLayoutType(x.type)) {
+            let dim = getLayoutType(x.type).size
             if (currentDimension == 0) currentDimension = dim
             else if (currentDimension < dim) optimum = false
             currentDimension = dim
@@ -170,8 +170,8 @@ function sortOn(arr) {
 
 function sortingCriteria(a, b) {
     if (!a.type || !b.type) return -1
-    const la = layoutMap[a.type]
-    const lb = layoutMap[b.type]
+    const la = getLayoutType(a.type)
+    const lb = getLayoutType(b.type)
     if (la && lb) return lb.size - la.size
     else if (la && !lb) {
         if (b.type === 'nested') {
@@ -302,13 +302,13 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
         // if there is padding it means that current field is less than 8 byte
         // so Golang compiler put a padding after to align to the next one or tail in the end
         if (field.type && field.type !== 'nested') {
-            if (layoutMap[field.type]) {
-                const size = layoutMap[field.type].size
-                const alignment = layoutMap[field.type].align
+            if (getLayoutType(field.type)) {
+                const size = getLayoutType(field.type).size
+                const alignment = getLayoutType(field.type).align
                 let padding = (currentOffset % alignment !== 0) ? alignment - (currentOffset % alignment) : 0
                 const currentPad = {
                     name: field.name,
-                    layout: layoutMap[field.type].size,
+                    layout: getLayoutType(field.type).size,
                     headPadding: padding,
                     pos: field.pos
                 }

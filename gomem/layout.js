@@ -19,8 +19,8 @@ const layoutMap = {
     "slice": { size: 24, align: 8 },   // pointer + len + cap
     "map": { size: 8, align: 8 },   // pointer to runtime.hmap
     "chan": { size: 8, align: 8 },
-    "func": { size: 8, align: 8 },
-    "interface": { size: 16, align: 8 },   // type + data
+    "func()": { size: 8, align: 8 },
+    "interface{}": { size: 16, align: 8 },   // type + data
     "pointer": { size: 8, align: 8 },
     "uintptr": { size: 8, align: 8 },
     "Time": { size: 24, align: 8 },   // from time.Time
@@ -28,6 +28,26 @@ const layoutMap = {
     "Mutex": { size: 8, align: 8 }    // sync.Mutex (usually int32 + pad)
 }
 
-//TODO: checkType function to get every kind of field (also array must be included)
+function getLayoutType(type) {
+    /**
+     * slice -> type[]
+     * including * -> pointer
+     * Time and Duration has to be included cause used as time.Time and time.Duration
+     * Mutex can be of several type -> must to be included
+     */
+    if (type.match(/\[\].*$/)) {
+        return layoutMap["slice"]
+    }
 
-module.exports = { layoutMap }
+    if (type.match(/\*.*$/)) {
+        return layoutMap["pointer"]
+    }
+
+    if (type == "time.Time") return layoutMap["Time"]
+    if (type == "time.Duration") return layoutMap["Duration"]
+    if (type.match(/^.*Mutex$/)) return layoutMap['Mutex']
+
+    return layoutMap[type]
+}
+
+module.exports = { layoutMap, getLayoutType }
