@@ -66,7 +66,17 @@ class CodeLensProvider {
             if (editor) {
                 padding.forEach(pad => {
                     try {
-                        if (pad.tail) return
+                        if (pad.tail) {
+                            const ipLine = editor.document.lineAt(pad.pos + 1)
+                            const range = new vscode.Range(ipLine.range.start, ipLine.range.end)
+                            const decoration = {
+                                range,
+                                renderOptions: { after: { contentText: `\t tail:${pad.tail}`, color: 'gray' } }
+                            }
+                            if (!this.decorations.some(d => JSON.stringify(d) === JSON.stringify(decoration))) {
+                                this.decorations.push(decoration)
+                            }
+                        }
                         /**
                          * Pad ha property pos that is the relative position of field in the current struct
                          */
@@ -77,12 +87,7 @@ class CodeLensProvider {
 
                             const ipLine = editor.document.lineAt(pad.pos)
                             // console.log(`ip: field ${pad.name} in pos ${JSON.stringify(ipLine)}`)
-                            //TODO try to do better than this
-                            if (!this.decorations.some(d => d.name == dec.name
-                                && d.pos.a == dec.pos['a']
-                                && d.pos.b == dec.pos['b']
-                                && d.pos.c == dec.pos['c']
-                            )) {
+                            if (!this.decorations.some(d => JSON.stringify(d) === JSON.stringify(dec))) {
                                 const range = new vscode.Range(ipLine.range.start, ipLine.range.end)
                                 const decoration = {
                                     range,

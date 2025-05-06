@@ -28,4 +28,6 @@ const layoutMap = {
     "Mutex": { size: 8, align: 8 }    // sync.Mutex (usually int32 + pad)
 }
 
+//TODO: checkType function to get every kind of field (also array must be included)
+
 module.exports = { layoutMap }

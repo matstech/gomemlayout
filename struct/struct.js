@@ -118,9 +118,9 @@ function writeStruct(structName, structFields, nested = false, buildString = "")
      * The only particulare case to handle is that a field is an Array
      */
     structFields.forEach(field => {
-        if (field.type || Array.isArray(field)) {
-            if (Array.isArray(field)) {
-                buildString += `\n${writeStruct('', field, true)}`
+        if (field.type) {
+            if (field.type === 'nested') {
+                buildString += `\n\t${field.name} struct {${writeStruct('', field.fields, true)}}\n`
             } else {
                 buildString += `\n\t${nested ? '\t' : ''}${field.name} ${field.type} ${field.others || ''}`
             }
@@ -128,23 +128,23 @@ function writeStruct(structName, structFields, nested = false, buildString = "")
     })
 
     return structName != '' ?
-        `type ${structName} struct { ${buildString} \n}\n\n` :
-        `\tstruct {\n${buildString}\n\t}`
+        `type ${structName} struct { ${buildString} \n}\n` :
+        `\t${buildString}\n\t`
 
 }
 
 
 function loopOn(arr, totalDimension = 0, currentDimension = 0, optimum = true) {
     arr.forEach(x => {
-        if (!x.type && !Array.isArray(x)) totalDimension += 0
+        if (!x.type && x.type !== 'nested') totalDimension += 0
         else if (layoutMap[x.type]) {
             let dim = layoutMap[x.type].size
             if (currentDimension == 0) currentDimension = dim
             else if (currentDimension < dim) optimum = false
             currentDimension = dim
             totalDimension += dim
-        } else if (Array.isArray(x)) {
-            let res = loopOn(x, 0, currentDimension, optimum)
+        } else if (x.type === 'nested') {
+            let res = loopOn(x.fields, 0, currentDimension, optimum)
             if (!res.optimum) optimum = res.optimum
             else if (currentDimension == 0) currentDimension = res.totalDimension
             else if (currentDimension < res.totalDimension) optimum = false
@@ -152,7 +152,7 @@ function loopOn(arr, totalDimension = 0, currentDimension = 0, optimum = true) {
             totalDimension += res.totalDimension
         } else {
             const s = searchForStructInFile(x.type)
-            const s1 = parsingStruct(s[0]) //TODO
+            const s1 = parsingStruct(s[0], x.name)
             let res = loopOn(s1, 0, currentDimension, optimum)
             if (currentDimension == 0) currentDimension = res.totalDimension
             else if (currentDimension < res.totalDimension) optimum = false
@@ -169,33 +169,33 @@ function sortOn(arr) {
 }
 
 function sortingCriteria(a, b) {
-    if ((!a.type && !Array.isArray(a)) || (!b.type && !Array.isArray(b))) return -1
+    if (!a.type || !b.type) return -1
     const la = layoutMap[a.type]
     const lb = layoutMap[b.type]
     if (la && lb) return lb.size - la.size
     else if (la && !lb) {
-        if (Array.isArray(b)) {
-            return loopOn(sortOn(b)).totalDimension - la.size
+        if (b.type === 'nested') {
+            return loopOn(sortOn(b.fields)).totalDimension - la.size
         } else {
             return computeStructDimension(b.type).totalDimension - la.size
         }
     } else if (!la && lb) {
-        if (Array.isArray(a)) {
-            return lb.size - loopOn(sortOn(a)).totalDimension
+        if (a.type === 'nested') {
+            return lb.size - loopOn(sortOn(a.fields)).totalDimension
         } else {
             return lb.size - computeStructDimension(a.type).totalDimension
         }
     } else {
         let dimA = 0
         let dimB = 0
-        if (Array.isArray(a)) {
-            dimA = loopOn(sortOn(a)).totalDimension
+        if (a.type === 'nested') {
+            dimA = loopOn(sortOn(a.fields)).totalDimension
         } else {
             dimA = computeStructDimension(a.type).totalDimension
         }
 
-        if (Array.isArray(b)) {
-            dimB = loopOn(sortOn(b)).totalDimension
+        if (b.type === 'nested') {
+            dimB = loopOn(sortOn(b.fields)).totalDimension
         } else {
             dimB = computeStructDimension(b.type).totalDimension
         }
@@ -212,7 +212,6 @@ function sortingCriteria(a, b) {
  */
 function parsingStruct(cleanedStruct, structName) {
 
-    //TODO: here can pass as input the struct start line
     let startStruct = 0
 
     if (structName !== undefined) {
@@ -228,6 +227,7 @@ function parsingStruct(cleanedStruct, structName) {
      */
     let structFields = []
     let nestedFields = []
+    let nestedStructName = ""
     let isNested = false
 
     cleanedStruct.split('\n')
@@ -237,9 +237,10 @@ function parsingStruct(cleanedStruct, structName) {
                 //skip
                 return
             }
-            if (row.includes('struct')) { //TODO: too mild use regexp and adding name to array
+            if (row.match(/^\w+\s+struct\s*{/)) {
                 // nested struct at first nesting level
                 isNested = true
+                nestedStructName = row.split(" ")[0]
                 return
             } else if (isNested && !row.startsWith('}')) {
                 const rowParts = row.split(' ').filter(r => r != '')
@@ -252,9 +253,10 @@ function parsingStruct(cleanedStruct, structName) {
                 })
                 return
             } else if (isNested && row.startsWith('}')) {
-                structFields.push(nestedFields)
+                structFields.push({ 'name': nestedStructName, 'type': 'nested', 'fields': nestedFields })
                 isNested = false
                 nestedFields = []
+                nestedStructName = ""
                 return
             }
 
@@ -292,13 +294,14 @@ function checkPaddingOnStruct(structName) {
  * This function compute padding for each field of input struct
  * @param {Array} cleanedStruct 
  */
-function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = false) {
+function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = false, currentPostion = 0) {
     // when cleandStruct has just one elment the padding is just on tail
     // otherwise loop on all fields
     cleanedStruct.forEach(field => {
+        currentPostion = field.pos
         // if there is padding it means that current field is less than 8 byte
         // so Golang compiler put a padding after to align to the next one or tail in the end
-        if (field.type) {
+        if (field.type && field.type !== 'nested') {
             if (layoutMap[field.type]) {
                 const size = layoutMap[field.type].size
                 const alignment = layoutMap[field.type].align
@@ -317,14 +320,15 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
                 const customType = parsingStruct(customStruct[0].replaceAll('\t', ''), field.type)
                 paddingOn(customType, currentOffset, paddings, true)
             }
-        } else if (Array.isArray(field)) {
-            paddingOn(field, currentOffset, paddings, true)
+        } else if (field.type === 'nested') {
+            paddingOn(field.fields, currentOffset, paddings, true)
         }
     })
 
     if (!nested)
         paddings.push({
-            tail: currentOffset % 8
+            tail: currentOffset % 8,
+            pos: currentPostion
         })
 
     return paddings
