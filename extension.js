@@ -11,9 +11,6 @@ const { sortStruct, writeStruct } = require('./struct/struct')
  */
 function activate(context) {
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "gomemlayout" is now active!');
 
 	vscode.workspace.getConfiguration('editor')
 		.update('codeLens', true, vscode.ConfigurationTarget.Global)
@@ -34,6 +31,15 @@ function activate(context) {
 			editor.setDecorations(decorationType, [...codeLens.decorations.values()])
 		}
 	});
+
+	vscode.workspace.onDidChangeTextDocument((document) => {
+		// Calcola e rendi le decorations
+		codeLens.provideDecorations(document)
+		const editor = vscode.window.activeTextEditor
+		if (editor) {
+			editor.setDecorations(decorationType, [...codeLens.decorations.values()])
+		}
+	})
 
 
 	// The command has been defined in the package.json file

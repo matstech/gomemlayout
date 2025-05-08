@@ -46,8 +46,12 @@ function getLayoutType(type) {
     if (type == "time.Time") return layoutMap["Time"]
     if (type == "time.Duration") return layoutMap["Duration"]
     if (type.match(/^.*Mutex$/)) return layoutMap['Mutex']
+    if (type.match(/^map\[.*\].*$/)) return layoutMap['map']
+
+    if (!layoutMap[type]) return { size: 1, align: 0 }
 
     return layoutMap[type]
 }
+
 
 module.exports = { layoutMap, getLayoutType }

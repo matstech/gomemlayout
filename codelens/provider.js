@@ -66,8 +66,8 @@ class CodeLensProvider {
             if (editor) {
                 padding.forEach(pad => {
                     try {
-                        if (pad.tail) {
-                            const ipLine = editor.document.lineAt(pad.pos + 1)
+                        if (pad.isTail) {
+                            const ipLine = editor.document.lineAt(pad.pos)
                             const range = new vscode.Range(ipLine.range.start, ipLine.range.end)
                             const decoration = {
                                 range,

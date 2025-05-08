@@ -1,65 +1,68 @@
-# gomemlayout README
 
-This is the README for your extension "gomemlayout". After writing up a brief description, we recommend including the following sections.
+# gomemlayout
+
+**gomemlayout** is a Visual Studio Code extension designed to optimize the memory layout of Go structs. It provides tools to analyze and improve struct layouts, reducing memory padding and improving efficiency.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **CodeLens Actions**: Adds a CodeLens above each Go struct to optimize its layout.
+- **Visual Decorations**: Highlights padding and inefficiencies in struct layouts directly in the editor.
+- **Automatic Optimization**: Reorganizes struct fields to minimize padding with a single command.
+- **Support for Nested Structs**: Handles and optimizes structs with nested fields.
 
-For example if there is an image subfolder under your extension project workspace:
+![Feature Example](images/feature-x.png)
 
-\!\[feature X\]\(images/feature-x.png\)
+> Tip: Add animations or screenshots to showcase your extension in action.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## Limitations
+
+While **gomemlayout** provides powerful tools for optimizing Go structs, there are some limitations to be aware of:
+
+- **Complex Structs**: Structs with deeply nested fields at second level or highly complex layouts may not be fully optimized. This could be supporteb but discouraged as use case.
+- **Custom Types**: The extension relies on a predefined `layoutMap` for type sizes including all common and base type in Go. Custom types not included in this map may not be handled correctly. The approach is conservative and they will be treated as smallest in the analyzed structs.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- **Go** must be installed on your system.
+- A Go file must be open in the editor for the extension to work.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+This extension does not currently add any configurable settings.
 
-For example:
+## Commands
 
-This extension contributes the following settings:
+The extension provides the following commands:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `gomemlayout.optimize`: Optimizes the layout of a selected struct.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- Structs with highly complex layouts may take longer to analyze.
+- Decorations may not update correctly in some edge cases when the file is modified rapidly.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+- Initial release with:
+  - CodeLens for struct optimization.
+  - Visual decorations for padding and inefficiencies.
+  - Command to optimize struct layouts.
 
 ---
 
 ## Working with Markdown
 
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
+You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
+- Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
+- Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
+- Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
 
 ## For more information
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+- [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**

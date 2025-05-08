@@ -5,7 +5,11 @@ function searchForStructInFile(structName) {
     const text = vscode.window.activeTextEditor.document.getText()
 
     if (structName !== undefined && structName !== '') {
-        const structRegex = new RegExp(`(?:type\\s+)?${structName}\\s+struct\\s*\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*)*[^{}]*\\}`, 'g')
+
+        const structRegex = new RegExp(
+            `(?:type\\s+)?${structName}\\s+struct\\s*\\{([\\s\\S]*?)^\\}`,
+            'm'
+        )
         return structRegex.exec(text)
     }
     return []
@@ -245,12 +249,38 @@ function parsingStruct(cleanedStruct, structName) {
             } else if (isNested && !row.startsWith('}')) {
                 const rowParts = row.split(' ').filter(r => r != '')
 
-                nestedFields.push({
-                    'name': rowParts[0],
-                    'type': rowParts[1],
-                    'others': rowParts.slice(2).join(' '),
-                    'pos': startStruct + idx
-                })
+                /**
+                 * In case different fields have same type could be
+                 * delcared on the some row splitted by comma
+                 */
+                if (rowParts[0].includes(',')) {
+                    const regex = /^([\w]+(?:\s*,\s*[\w]+)*)\s+\w+\s+`[^`]*`$/gm;
+
+                    let match = regex.exec(row)
+
+                    const fieldNames = match[1]
+                    const occurrences = fieldNames.split(',').length
+
+                    const info = row.split(fieldNames).filter(f => f != '')[0].split(' ').filter(f => f != '')
+                    const type = info[0].trim()
+                    const others = info.slice(1).join(' ')
+
+                    nestedFields.push({
+                        'name': fieldNames,
+                        'type': type,
+                        'others': others,
+                        'pos': startStruct + idx,
+                        'occurrences': occurrences
+                    })
+                }
+                else {
+                    nestedFields.push({
+                        'name': rowParts[0],
+                        'type': rowParts[1],
+                        'others': rowParts.slice(2).join(' '),
+                        'pos': startStruct + idx
+                    })
+                }
                 return
             } else if (isNested && row.startsWith('}')) {
                 structFields.push({ 'name': nestedStructName, 'type': 'nested', 'fields': nestedFields })
@@ -303,7 +333,10 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
         // so Golang compiler put a padding after to align to the next one or tail in the end
         if (field.type && field.type !== 'nested') {
             if (getLayoutType(field.type)) {
-                const size = getLayoutType(field.type).size
+                let size = getLayoutType(field.type).size
+                if (field.occurrences) {
+                    size *= field.occurrences
+                }
                 const alignment = getLayoutType(field.type).align
                 let padding = (currentOffset % alignment !== 0) ? alignment - (currentOffset % alignment) : 0
                 const currentPad = {
@@ -317,25 +350,31 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
             } else {
                 //custom type
                 const customStruct = searchForStructInFile(field.type);
-                const customType = parsingStruct(customStruct[0].replaceAll('\t', ''), field.type)
-                paddingOn(customType, currentOffset, paddings, true)
+                if (customStruct) {
+                    const customType = parsingStruct(customStruct[0].replaceAll('\t', ''), field.type)
+                    paddingOn(customType, currentOffset, paddings, true)
+                }
+                nested = false
             }
         } else if (field.type === 'nested') {
             paddingOn(field.fields, currentOffset, paddings, true)
+            nested = false
         }
     })
-
-    if (!nested)
-        paddings.push({
-            tail: currentOffset % 8,
-            pos: currentPostion
-        })
+    if (!nested) {
+        const padAmount = (currentOffset % 8 == 0) ? 0 : 8 - (currentOffset % 8)
+        if (padAmount > 0) {
+            paddings.push({
+                isTail: true,
+                tail: padAmount,
+                pos: currentPostion + 1
+            })
+        }
+    }
 
     return paddings
 
 }
-
-
 
 module.exports = {
     getAllStructInDocument,
