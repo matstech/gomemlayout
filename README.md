@@ -10,9 +10,7 @@
 - **Automatic Optimization**: Reorganizes struct fields to minimize padding with a single command.
 - **Support for Nested Structs**: Handles and optimizes structs with nested fields.
 
-![Feature Example](images/example.png)
-
-> Tip: Add animations or screenshots to showcase your extension in action.
+![Feature Example](./images/example.png)
 
 ## Limitations
 

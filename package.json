@@ -6,6 +6,9 @@
   "engines": {
     "vscode": "^1.99.0"
   },
+  "repository": {
+    "url": "https://github.com/matstech/gomemlayout"
+  },
   "categories": [
     "Other"
   ],
