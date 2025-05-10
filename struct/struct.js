@@ -1,5 +1,5 @@
 const vscode = require('vscode')
-const { layoutMap, getLayoutType } = require('../gomem/layout')
+const { layoutMap } = require('../gomem/layout')
 
 function searchForStructInFile(structName) {
     const text = vscode.window.activeTextEditor.document.getText()
@@ -141,19 +141,20 @@ function writeStruct(structName, structFields, nested = false, buildString = "")
 function loopOn(arr, totalDimension = 0, currentDimension = 0, optimum = true) {
     arr.forEach(x => {
         if (!x.type && x.type !== 'nested') totalDimension += 0
-        else if (getLayoutType(x.type)) {
-            let dim = getLayoutType(x.type).size
-            if (currentDimension == 0) currentDimension = dim
-            else if (currentDimension < dim) optimum = false
-            currentDimension = dim
-            totalDimension += dim
-        } else if (x.type === 'nested') {
+        else if (x.type === 'nested') {
             let res = loopOn(x.fields, 0, currentDimension, optimum)
             if (!res.optimum) optimum = res.optimum
             else if (currentDimension == 0) currentDimension = res.totalDimension
             else if (currentDimension < res.totalDimension) optimum = false
             currentDimension = res.totalDimension
             totalDimension += res.totalDimension
+        }
+        else if (getLayout(x.type)) {
+            let dim = getLayout(x.type).size
+            if (currentDimension == 0) currentDimension = dim
+            else if (currentDimension < dim) optimum = false
+            currentDimension = dim
+            totalDimension += dim
         } else {
             const s = searchForStructInFile(x.type)
             const s1 = parsingStruct(s[0], x.name)
@@ -174,8 +175,8 @@ function sortOn(arr) {
 
 function sortingCriteria(a, b) {
     if (!a.type || !b.type) return -1
-    const la = getLayoutType(a.type)
-    const lb = getLayoutType(b.type)
+    const la = getLayout(a.type)
+    const lb = getLayout(b.type)
     if (la && lb) return lb.size - la.size
     else if (la && !lb) {
         if (b.type === 'nested') {
@@ -266,24 +267,24 @@ function parsingStruct(cleanedStruct, structName) {
                     const others = info.slice(1).join(' ')
 
                     nestedFields.push({
-                        'name': fieldNames,
-                        'type': type,
-                        'others': others,
-                        'pos': startStruct + idx,
-                        'occurrences': occurrences
+                        name: fieldNames,
+                        type: type,
+                        others: others,
+                        pos: startStruct + idx,
+                        occurrences: occurrences
                     })
                 }
                 else {
                     nestedFields.push({
-                        'name': rowParts[0],
-                        'type': rowParts[1],
-                        'others': rowParts.slice(2).join(' '),
-                        'pos': startStruct + idx
+                        name: rowParts[0],
+                        type: rowParts[1],
+                        others: rowParts.slice(2).join(' '),
+                        pos: startStruct + idx
                     })
                 }
                 return
             } else if (isNested && row.startsWith('}')) {
-                structFields.push({ 'name': nestedStructName, 'type': 'nested', 'fields': nestedFields })
+                structFields.push({ name: nestedStructName, type: 'nested', fields: nestedFields })
                 isNested = false
                 nestedFields = []
                 nestedStructName = ""
@@ -293,10 +294,10 @@ function parsingStruct(cleanedStruct, structName) {
             const rowParts = row.split(' ').filter(r => r != '')
 
             structFields.push({
-                'name': rowParts[0],
-                'type': rowParts[1],
-                'others': rowParts.slice(2).join(' '),
-                'pos': startStruct + idx
+                name: rowParts[0],
+                type: rowParts[1],
+                others: rowParts.slice(2).join(' '),
+                pos: startStruct + idx,
             })
 
         })
@@ -328,20 +329,21 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
     // when cleandStruct has just one elment the padding is just on tail
     // otherwise loop on all fields
     cleanedStruct.forEach(field => {
-        currentPostion = field.pos
+        if (field.pos)
+            currentPostion = field.pos
         // if there is padding it means that current field is less than 8 byte
         // so Golang compiler put a padding after to align to the next one or tail in the end
         if (field.type && field.type !== 'nested') {
-            if (getLayoutType(field.type)) {
-                let size = getLayoutType(field.type).size
+            if (getLayout(field.type)) {
+                let size = getLayout(field.type).size
                 if (field.occurrences) {
                     size *= field.occurrences
                 }
-                const alignment = getLayoutType(field.type).align
-                let padding = (currentOffset % alignment !== 0) ? alignment - (currentOffset % alignment) : 0
+                const alignment = getLayout(field.type).align
+                let padding = alignment > 0 && (currentOffset % alignment !== 0) ? alignment - (currentOffset % alignment) : 0
                 const currentPad = {
                     name: field.name,
-                    layout: getLayoutType(field.type).size,
+                    layout: getLayout(field.type).size,
                     headPadding: padding,
                     pos: field.pos
                 }
@@ -352,12 +354,12 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
                 const customStruct = searchForStructInFile(field.type);
                 if (customStruct) {
                     const customType = parsingStruct(customStruct[0].replaceAll('\t', ''), field.type)
-                    paddingOn(customType, currentOffset, paddings, true)
+                    paddingOn(customType, currentOffset, paddings, true, currentPostion)
                 }
                 nested = false
             }
         } else if (field.type === 'nested') {
-            paddingOn(field.fields, currentOffset, paddings, true)
+            paddingOn(field.fields, currentOffset, paddings, true, currentPostion)
             nested = false
         }
     })
@@ -376,9 +378,42 @@ function paddingOn(cleanedStruct, currentOffset = 0, paddings = [], nested = fal
 
 }
 
+function getLayout(type) {
+    if (type == 'nested') return
+    /**
+     * slice -> type[]
+     * including * -> pointer
+     * Time and Duration has to be included cause used as time.Time and time.Duration
+     * Mutex can be of several type -> must to be included
+     */
+    if (type.match(/\[\].*$/)) return layoutMap["slice"]
+    if (type.match(/\[\].*$/)) return layoutMap["slice"]
+    if (type.match(/^\[\d+\].*$/)) {
+        const match = type.match(/^\[\d+\].*$/)
+        const typ = match[0].split(']')[1]
+        const dim = match[0].split(']')[0].replaceAll('[', '')
+        let layout = getLayout(typ)
+
+        return { size: layout.size * dim, align: layout.align }
+    }
+    if (type.match(/^.*Mutex$/)) return layoutMap['Mutex']
+    if (type.match(/^map\[.*\].*$/)) return layoutMap['map']
+    if (type.match(/\*.*$/)) return layoutMap["pointer"]
+    if (type == "time.Time") return layoutMap["Time"]
+    if (type == "time.Duration") return layoutMap["Duration"]
+
+    if (!layoutMap[type]) {
+        let ifStruct = searchForStructInFile(type)
+        if (ifStruct) return { size: computeStructDimension(type).totalDimension, align: 8 }
+        return { size: 1, align: 0 }
+    }
+    return layoutMap[type]
+}
+
 module.exports = {
     getAllStructInDocument,
     computeStructDimension,
+    searchForStructInFile,
     sortStruct,
     writeStruct,
     checkPaddingOnStruct

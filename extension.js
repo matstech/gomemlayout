@@ -59,12 +59,13 @@ function activate(context) {
 			})).then(() => {
 				codeLens.provideDecorations(editor.document)
 				editor.setDecorations(decorationType, [...codeLens.decorations.values()])
+				codeLens.provideCodeLenses(editor.document)
 			})
 
 		}
 
 		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from gomemlayout! Trying to optimizing struct ' + struct);
+		vscode.window.showInformationMessage('Trying to optimizing struct ' + struct.name);
 	});
 
 	context.subscriptions.push(disposable);

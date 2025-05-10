@@ -16,8 +16,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "gomemlayout.helloWorld",
-        "title": "Hello World"
+        "command": "gomemlayout.optimize",
+        "title": "Optimize memory layout"
       }
     ]
   },

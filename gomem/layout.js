@@ -28,31 +28,7 @@ const layoutMap = {
     "Mutex": { size: 8, align: 8 }    // sync.Mutex (usually int32 + pad)
 }
 
-function getLayoutType(type) {
-    /**
-     * slice -> type[]
-     * including * -> pointer
-     * Time and Duration has to be included cause used as time.Time and time.Duration
-     * Mutex can be of several type -> must to be included
-     */
-    if (type.match(/\[\].*$/)) return layoutMap["slice"]
-    if (type.match(/\[\].*$/)) return layoutMap["slice"]
-    if (type.match(/^\[\d+\].*$/)) {
-        const match = type.match(/^\[\d+\].*$/)
-        const typ = match[0].split(']')[1]
-        const dim = match[0].split(']')[0].replaceAll('[', '')
-        let layout = getLayoutType(typ)
-
-        return { size: layout.size * dim, align: layout.align }
-    }
-    if (type.match(/^.*Mutex$/)) return layoutMap['Mutex']
-    if (type.match(/^map\[.*\].*$/)) return layoutMap['map']
-    if (type.match(/\*.*$/)) return layoutMap["pointer"]
-    if (type == "time.Time") return layoutMap["Time"]
-    if (type == "time.Duration") return layoutMap["Duration"]
-    if (!layoutMap[type]) return { size: 1, align: 0 }
-    return layoutMap[type]
-}
 
 
-module.exports = { layoutMap, getLayoutType }
+
+module.exports = { layoutMap }
